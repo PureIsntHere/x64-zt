@@ -77,7 +77,6 @@ namespace zonetool::h1
             });
 
     }
-    //––– end register_commands() –––
 
     void load_proto_stub(utils::hook::assembler& a)
     {
