@@ -1,0 +1,78 @@
+diff --git a/src/zonetool/main.cpp b/src/zonetool/main.cpp
+index 0123456..abcdef0 100644
+--- a/src/zonetool/main.cpp
++++ b/src/zonetool/main.cpp
+@@
+ #include <utils/io.hpp>
++#include <filesystem>
++#include <vector>
+ 
+ #include "game/mode.hpp"
+ #include "component/h1/command.hpp"
+@@ BOOL WINAPI system_parameters_info_a(const UINT uiAction, const UINT uiParam, const PVOID pvParam, const UINT fWinIni)
+-       return SystemParametersInfoA(uiAction, uiParam, pvParam, fWinIni);
+-   }
++       return SystemParametersInfoA(uiAction, uiParam, pvParam, fWinIni);
++   }
++
++  // Batch‐dump support: non-recursive (--batchdump) & recursive (--batchdumpwalk)
++  void run_batch_dump(const std::string& directory, bool walk)
++  {
++    namespace fs = std::filesystem;
++    std::vector<std::string> zones;
++    fs::path base(directory);
++    if (!fs::exists(base) || !fs::is_directory(base))
++    {
++      MessageBoxA(nullptr, ("[BatchDump] Invalid directory: " + directory).c_str(), "BatchDump", MB_ICONERROR);
++      exit(1);
++    }
++    if (walk)
++      for (auto& e : fs::recursive_directory_iterator(base))
++        if (e.is_regular_file() && e.path().extension() == ".ff")
++          zones.push_back(e.path().string());
++    else
++      for (auto& e : fs::directory_iterator(base))
++        if (e.is_regular_file() && e.path().extension() == ".ff")
++          zones.push_back(e.path().string());
++
++    for (auto& z : zones)
++      h1::command::execute("dumpzone " + z, true);
++
++    exit(0);
++  }
+@@
+- int main_internal()
++ int main_internal(const std::vector<std::string>& startup_args)
+@@ int main_internal()
+-       FARPROC entry_point = nullptr;
++       FARPROC entry_point = nullptr;
+@@
+-           if (!component_loader::post_load())
+-           {
+-               return 0;
+-           }
++           if (!component_loader::post_load())
++               return 0;
++
++          // ←— If user passed --batchdump / --batchdumpwalk, perform it and exit
++          if (!startup_args.empty() &&
++             (startup_args[0] == "--batchdump" || startup_args[0] == "--batchdumpwalk"))
++          {
++            bool walk = (startup_args[0] == "--batchdumpwalk");
++            if (startup_args.size() >= 2)
++              run_batch_dump(startup_args[1], walk);
++          }
+@@
+-int main()
++int main()
+ {
+-   if (utils::io::file_exists(H1_BINARY))
++  // Collect any command-line args
++  std::vector<std::string> startup_args;
++  for (int i = 1; i < __argc; ++i)
++    startup_args.emplace_back(__argv[i]);
++
++  if (utils::io::file_exists(H1_BINARY))
+@@
+-   return main_internal();
++   return main_internal(startup_args);

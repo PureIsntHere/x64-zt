@@ -207,13 +207,13 @@ namespace zonetool::h1
 
 	std::optional<std::string> get_streamed_image_pixels(const std::string& name, int stream)
 	{
-		const auto image_path = utils::string::va("streamed_images\\%s_stream%i.pixels", 
+		const auto image_path = utils::string::va("streamed_images\\%s_stream%i.pixels",
 			clean_name(name).data(), stream);
 		const auto full_path = filesystem::get_file_path(image_path) + image_path;
-		
+
 		if (utils::io::file_exists(full_path))
 		{
-			return {utils::io::read_file(full_path)};
+			return { utils::io::read_file(full_path) };
 		}
 
 		return {};
@@ -248,7 +248,7 @@ namespace zonetool::h1
 		const auto pixel_data = image.GetPixels();
 		const auto size = image.GetPixelsSize();
 
-		return {{reinterpret_cast<const char*>(pixel_data), size}};
+		return { {reinterpret_cast<const char*>(pixel_data), size} };
 	}
 
 	std::optional<std::string> get_streamed_image_pixels_path(const std::string& name, int stream)
@@ -259,7 +259,7 @@ namespace zonetool::h1
 
 		if (utils::io::file_exists(full_path))
 		{
-			return {full_path};
+			return { full_path };
 		}
 
 		return {};
@@ -309,7 +309,7 @@ namespace zonetool::h1
 			}
 
 			const auto& path = result.value();
-			this->image_stream_blocks_paths[i] = {path};
+			this->image_stream_blocks_paths[i] = { path };
 		}
 
 		read.close();
@@ -476,7 +476,7 @@ namespace zonetool::h1
 		}
 	}
 
-	void dump_streamed_image(GfxImage* image, bool is_self = false, bool dump_dds = false)
+	void dump_streamed_image(GfxImage* image, bool is_self = false, bool dump_dds = true)
 	{
 		for (auto i = 0u; i < 4; i++)
 		{
