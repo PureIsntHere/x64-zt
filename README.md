@@ -1,6 +1,6 @@
 # x64 ZoneTool (Modified)
 
-> **⚠️ NOTICE**: This is a modified version of x64 ZoneTool for personal projects and is **NOT** part of the official x64 ZoneTool project. This fork includes custom features and modifications not present in the upstream repository.
+> **NOTICE**: This is a modified version of x64 ZoneTool for personal projects and is **NOT** part of the official x64 ZoneTool project. This fork includes custom features and modifications not present in the upstream repository.
 
 A fastfile unlinker and linker for various x64 Call of Duty titles. 
 
