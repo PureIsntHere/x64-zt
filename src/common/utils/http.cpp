@@ -1,12 +1,16 @@
 #include "http.hpp"
 #include "nt.hpp"
-#include <atlcomcli.h>
+
+#include <Windows.h>
+#include <urlmon.h>
+
+#pragma comment(lib, "urlmon.lib")
 
 namespace utils::http
 {
 	std::optional<std::string> get_data(const std::string& url)
 	{
-		CComPtr<IStream> stream;
+		IStream* stream = nullptr;
 
 		if (FAILED(URLOpenBlockingStreamA(nullptr, url.data(), &stream, 0, nullptr)))
 		{
@@ -29,6 +33,8 @@ namespace utils::http
 			}
 		}
 		while (SUCCEEDED(status) && status != S_FALSE);
+
+		stream->Release();
 
 		if (FAILED(status))
 		{

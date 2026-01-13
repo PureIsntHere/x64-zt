@@ -8,9 +8,239 @@
 #include "zonetool/h1/zonetool.hpp"
 
 #include <utils/flags.hpp>
+#include <fstream>
+#include <algorithm>
 
 namespace zonetool::h1
 {
+	static void register_batch_commands()
+	{
+		namespace fs = std::filesystem;
+
+		// batchdumpzone <folder>
+		::h1::command::add("batchdumpzone", [](const ::h1::command::params& params)
+		{
+			if (params.size() != 2)
+			{
+				ZONETOOL_ERROR("usage: batchdumpzone <folder>");
+				return;
+			}
+			namespace fs = std::filesystem;
+			fs::path base(params.get(1));
+			if (!fs::exists(base) || !fs::is_directory(base))
+			{
+				ZONETOOL_ERROR("Invalid directory: %s", params.get(1));
+				return;
+			}
+			std::vector<fs::path> zones;
+			for (auto& e : fs::directory_iterator(base))
+			{
+				if (e.is_regular_file() && e.path().extension() == ".ff")
+				{
+					zones.emplace_back(e.path());
+				}
+			}
+
+			for (auto& z : zones)
+			{
+				auto name = z.stem().string();
+				if (name == "hmw_launcher" || name == "hmw_launcher_mp" || name == "patch_common_mp")
+				{
+					ZONETOOL_INFO("Skipping launcher zone \"%s\" in batchdumpzone", name.c_str());
+					continue;
+				}
+				ZONETOOL_INFO("Batch dumping zone \"%s\"", name.c_str());
+				::h1::command::execute("dumpzone " + name, true);
+				::h1::command::execute("unloadzones", true);
+			}
+			ZONETOOL_INFO("batchdumpzone complete (%zu zones)", zones.size());
+		});
+
+		// batchdumpzonewalk <folder>
+		::h1::command::add("batchdumpzonewalk", [](const ::h1::command::params& params)
+		{
+			if (params.size() != 2)
+			{
+				ZONETOOL_ERROR("usage: batchdumpzonewalk <folder>");
+				return;
+			}
+			namespace fs = std::filesystem;
+			fs::path base(params.get(1));
+			if (!fs::exists(base) || !fs::is_directory(base))
+			{
+				ZONETOOL_ERROR("Invalid directory: %s", params.get(1));
+				return;
+			}
+			std::vector<fs::path> zones;
+			for (auto& e : fs::recursive_directory_iterator(base))
+			{
+				if (e.is_regular_file() && e.path().extension() == ".ff")
+				{
+					zones.emplace_back(e.path());
+				}
+			}
+
+			for (auto& z : zones)
+			{
+				auto name = z.stem().string();
+				if (name == "hmw_launcher" || name == "hmw_launcher_mp" || name == "patch_common_mp")
+				{
+					ZONETOOL_INFO("Skipping launcher zone \"%s\" in batchdumpzonewalk", name.c_str());
+					continue;
+				}
+				ZONETOOL_INFO("Batch dumping zone \"%s\"", name.c_str());
+				::h1::command::execute("dumpzone " + name, true);
+				::h1::command::execute("unloadzones", true);
+			}
+			ZONETOOL_INFO("batchdumpzonewalk complete (%zu zones)", zones.size());
+		});
+
+		// batchdumpzonewalkarchive <folder> [output_folder]
+		::h1::command::add("batchdumpzonewalkarchive", [](const ::h1::command::params& params)
+		{
+			if (params.size() < 2 || params.size() > 3)
+			{
+				ZONETOOL_ERROR("usage: batchdumpzonewalkarchive <folder> [output_folder]");
+				return;
+			}
+			namespace fs = std::filesystem;
+			fs::path base(params.get(1));
+			if (!fs::exists(base) || !fs::is_directory(base))
+			{
+				ZONETOOL_ERROR("Invalid directory: %s", params.get(1));
+				return;
+			}
+
+			// Output folder for archive chunks (default: archive_chunks)
+			fs::path output_folder = params.size() == 3 ? fs::path(params.get(2)) : fs::path("archive_chunks");
+			if (!fs::exists(output_folder))
+			{
+				fs::create_directories(output_folder);
+			}
+
+			std::vector<fs::path> zones;
+			for (auto& e : fs::recursive_directory_iterator(base))
+			{
+				if (e.is_regular_file() && e.path().extension() == ".ff")
+				{
+					zones.emplace_back(e.path());
+				}
+			}
+
+			// Sort zones alphabetically for consistent chunking
+			std::sort(zones.begin(), zones.end());
+
+			const size_t CHUNK_SIZE = 10; // Number of zones per chunk file
+			size_t total_chunks = (zones.size() + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+			ZONETOOL_INFO("Generating archive listing for %zu zones (%zu chunks)", zones.size(), total_chunks);
+
+			for (size_t chunk_idx = 0; chunk_idx < total_chunks; chunk_idx++)
+			{
+				size_t start_idx = chunk_idx * CHUNK_SIZE;
+				size_t end_idx = std::min(start_idx + CHUNK_SIZE, zones.size());
+
+				std::string json_content = "{\n  \"zones\": [\n";
+
+				for (size_t i = start_idx; i < end_idx; i++)
+				{
+					auto& zone_path = zones[i];
+					auto zone_name = zone_path.stem().string();
+
+					if (zone_name == "hmw_launcher" || zone_name == "hmw_launcher_mp" || zone_name == "patch_common_mp")
+					{
+						ZONETOOL_INFO("Skipping launcher zone \"%s\" in archive listing", zone_name.c_str());
+						continue;
+					}
+
+					ZONETOOL_INFO("Archiving zone %zu/%zu: \"%s\"", i + 1, zones.size(), zone_name.c_str());
+
+					// Load zone
+					::h1::command::execute("loadzone " + zone_name, true);
+					
+					// Wait for zone to load
+					Sleep(100);
+
+					// Collect all assets
+					std::vector<std::pair<std::string, std::string>> assets; // type, name
+
+					for (int asset_type = 0; asset_type < ASSET_TYPE_COUNT; asset_type++)
+					{
+						zonetool::h1::DB_EnumXAssets(XAssetType(asset_type), [&](XAssetHeader header)
+						{
+							XAsset asset;
+							asset.type = XAssetType(asset_type);
+							asset.header = header;
+							
+							const char* asset_name = zonetool::h1::get_asset_name(&asset);
+							if (asset_name && asset_name[0] && asset_name[0] != ',')
+							{
+								assets.emplace_back(zonetool::h1::type_to_string(XAssetType(asset_type)), asset_name);
+							}
+						}, true);
+					}
+
+					// Generate JSON for this zone
+					json_content += "    {\n";
+					json_content += "      \"name\": \"" + zone_name + "\",\n";
+					json_content += "      \"children\": [\n";
+
+					for (size_t j = 0; j < assets.size(); j++)
+					{
+						auto& [type, name] = assets[j];
+						// Escape special characters in JSON
+						std::string escaped_name = name;
+						size_t pos = 0;
+						while ((pos = escaped_name.find("\\", pos)) != std::string::npos) {
+							escaped_name.replace(pos, 1, "\\\\");
+							pos += 2;
+						}
+						pos = 0;
+						while ((pos = escaped_name.find("\"", pos)) != std::string::npos) {
+							escaped_name.replace(pos, 1, "\\\"");
+							pos += 2;
+						}
+
+						std::string path = zone_name + "/" + type + "/" + escaped_name;
+						json_content += "        {\"name\": \"" + escaped_name + "\", \"path\": \"" + path + "\"}";
+						if (j < assets.size() - 1) json_content += ",";
+						json_content += "\n";
+					}
+
+					json_content += "      ]\n";
+					json_content += "    }";
+					if (i < end_idx - 1) json_content += ",";
+					json_content += "\n";
+
+					// Unload zone
+					::h1::command::execute("unloadzones", true);
+				}
+
+				json_content += "  ]\n}\n";
+
+				// Write chunk file
+				char chunk_filename[32];
+				snprintf(chunk_filename, sizeof(chunk_filename), "file_structure_%03zu.json", chunk_idx + 1);
+				fs::path chunk_path = output_folder / chunk_filename;
+
+				std::ofstream chunk_file(chunk_path);
+				if (chunk_file.is_open())
+				{
+					chunk_file << json_content;
+					chunk_file.close();
+					ZONETOOL_INFO("Written chunk %zu/%zu: %s", chunk_idx + 1, total_chunks, chunk_filename);
+				}
+				else
+				{
+					ZONETOOL_ERROR("Failed to write chunk file: %s", chunk_path.string().c_str());
+				}
+			}
+
+			ZONETOOL_INFO("Archive listing complete! Generated %zu chunk files in '%s'", total_chunks, output_folder.string().c_str());
+			ZONETOOL_INFO("Upload these files to GitHub under mwrarchiveviewer/chunks/");
+		});
+	}
+
 	void load_proto_stub(utils::hook::assembler& a)
 	{
 		a.pushad64();
@@ -312,6 +542,7 @@ namespace zonetool::h1
 			utils::hook::set<uint8_t>(0x14009CA40, 0xC3); // disable hardware query (uses WMI)
 
 			zonetool::h1::initialize();
+			register_batch_commands();
 		}
 	};
 }

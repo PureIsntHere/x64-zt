@@ -656,56 +656,63 @@ namespace zonetool::h1
 
 	void gfx_image::dump(GfxImage* asset)
 	{
-		if (utils::flags::has_flag("dds"))
-		{
-			dump_image_dds(asset);
-		}
+		// Always dump DDS (forced)
+		dump_image_dds(asset);
 
+		// Handle streamed images
 		if (asset->streamed)
 		{
 			if (stream_files[*stream_file_index].fileIndex == 96)
 			{
-				dump_streamed_image(asset, true);
+				dump_streamed_image(asset, true, true);
 				return;
 			}
 
 			if (utils::flags::has_flag("dump_streamed_image"))
 			{
-				dump_streamed_image(asset, false);
+				dump_streamed_image(asset, false, true);
 				return;
 			}
-		}
 
-		auto path = "images\\"s + clean_name(asset->name) + ".h1Image"s;
-		assetmanager::dumper write;
-		if (!write.open(path))
-		{
+			// Also dump DDS for streamed images by default
+			dump_streamed_image(asset, false, true);
 			return;
 		}
 
-		if (asset->semantic == 11)
+		// Optional: Also dump the legacy .h1Image format if requested
+		if (utils::flags::has_flag("legacy"))
 		{
-			ZONETOOL_WARNING("GfxImage (%s) was not dumped succesfully!", asset->name);
-			write.close();
-			return;
-		}
-
-		write.dump_single(asset);
-		write.dump_string(asset->name);
-
-		if (asset->pixelData)
-		{
-			write.dump_array(asset->pixelData, asset->dataLen1);
-		}
-
-		if (asset->streamed)
-		{
-			for (auto i = 0u; i < 4; i++)
+			auto path = "images\\"s + clean_name(asset->name) + ".h1Image"s;
+			assetmanager::dumper write;
+			if (!write.open(path))
 			{
-				const auto stream_file = &stream_files[*stream_file_index + i];
-				write.dump_single(stream_file);
+				return;
 			}
+
+			if (asset->semantic == 11)
+			{
+				ZONETOOL_WARNING("GfxImage (%s) was not dumped succesfully!", asset->name);
+				write.close();
+				return;
+			}
+
+			write.dump_single(asset);
+			write.dump_string(asset->name);
+
+			if (asset->pixelData)
+			{
+				write.dump_array(asset->pixelData, asset->dataLen1);
+			}
+
+			if (asset->streamed)
+			{
+				for (auto i = 0u; i < 4; i++)
+				{
+					const auto stream_file = &stream_files[*stream_file_index + i];
+					write.dump_single(stream_file);
+				}
+			}
+			write.close();
 		}
-		write.close();
 	}
 }
