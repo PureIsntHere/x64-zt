@@ -1,8 +1,17 @@
-# x64 ZoneTool
+# x64 ZoneTool (Modified)
+
+> **⚠️ NOTICE**: This is a modified version of x64 ZoneTool for personal projects and is **NOT** part of the official x64 ZoneTool project. This fork includes custom features and modifications not present in the upstream repository.
+
 A fastfile unlinker and linker for various x64 Call of Duty titles. 
 
 - If you are interested in porting maps or assets from IW3/4/5, check <b>[Aurora's Map Porting IW3/4/5 -> H1](https://docs.auroramod.dev/map-porting-iw5)</b>
 - If you are interested in porting maps or assets from newer Call of Duty games like H1, S1, H1, H2, or IW7, between each other, check <b>[Aurora's Map Porting (S1 <-> H1 <-> H2)](https://docs.auroramod.dev/map-porting-s1)</b>
+
+## Custom Modifications
+This fork includes the following modifications:
+- **Force DDS Export**: Images are always exported as DDS format. The legacy `.h1Image` format is only used when the `--legacy` flag is specified.
+- **Batch Dump Commands**: New commands for batch processing multiple zone files.
+- **Archive Listing Generator**: Generate JSON manifests for online file browsers.
 
 ## Supported Games
 * **IW6** (*Call of Duty: Ghosts*)
@@ -24,6 +33,11 @@ Check out the [Aurora Zonetool Basics](https://docs.auroramod.dev/zonetool-basic
 * `dumpasset <type> <name>`: Dumps a single assset
 * `dumpmap <map>`: Dumps all required assets for a map
 * `dumpmap <target game> <map> <asset filter> <skip common>`: Dumps and converts all required assets for a map
+
+### Custom Batch Commands (H1 Only)
+* `batchdumpzone <folder>`: Batch dumps all zones (`.ff` files) in the specified folder (non-recursive). 
+* `batchdumpzonewalk <folder>`: Batch dumps all zones (`.ff` files) in the specified folder recursively.
+* `batchdumpzonewalkarchive <folder> [output_folder]`: Generates JSON manifests for all zones in the specified folder (recursive) without dumping actual assets. Creates chunk files (10 zones per file) in `output_folder` (default: `archive_chunks/`)
 
   ### Definitions
   * `asset filter`: A filter specifying all the asset types that should be dumped, if not specified or empty it will dump all asset types.
