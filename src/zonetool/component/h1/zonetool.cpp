@@ -236,8 +236,8 @@ namespace zonetool::h1
 				}
 			}
 
-			ZONETOOL_INFO("Archive listing complete! Generated %zu chunk files in '%s'", total_chunks, output_folder.string().c_str());
-			ZONETOOL_INFO("Upload these files to GitHub under mwrarchiveviewer/chunks/");
+			ZONETOOL_INFO("Archive listing complete. Generated %zu chunk files in '%s'", total_chunks, output_folder.string().c_str());
+			ZONETOOL_INFO("");
 		});
 	}
 
